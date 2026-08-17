@@ -4,9 +4,9 @@ Yowazi is a series of packages and tools for creating TUIs (terminal user interf
 
 The use of `bun` is a very deliberate choice as it can compile NodeJS tools to binaries with runtime sizes of around 65-70MB. Significantly larger than `go` or `rust`, but in a language that is more accessible to developers. Yowazi is inspired by the _glamorous_ **Bubbletea** framework for `go`.
 
-Other frameworks, like `ink` exist, but forces a web paradigm (React) on the creation of cli tools. Such frameworks often have many dependencies and a core design goal of `yowazi` is zero-dependencies, aside from some dev dependencies required in the resulting apps.
+Other frameworks, like `ink` exist, but forces a web paradigm (React) on the creation of cli tools. Such frameworks often have many dependencies. A core design goal of `yowazi` is zero-dependencies, aside from some dev dependencies required in the resulting apps.
 
-Because naming is hard, I chose Yowazi from the Swahili language. It means `clearly|clarity` (some translations says "you know"). The rest of the packages adopts Swahili words (or modified versions) for package names.
+Because naming is hard, I chose Yowazi from the Swahili language. It means `clearly|clarity`. The rest of the packages adopts Swahili words (or modified versions) for package names.
 
 ---
 
