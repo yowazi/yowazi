@@ -1,0 +1,20 @@
+{
+  "compilerOptions"": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterOp": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "lib": [
+      "ESNext"
+    ]
+  },
+  "include": [
+    "packages/**/*.js"
+  ]
+}

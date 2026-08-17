@@ -1,0 +1,19 @@
+{
+  "name": "yowazi",
+  "version": "0.0.1",
+  "description": "Yowazi is a series of packages and tools for creating TUIs (terminal user interfaces).",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p jsonconfig.base.json"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  },
+  "author": "Rheinard Korf",
+  "license": "MIT"
+}
