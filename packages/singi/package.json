@@ -1,0 +1,15 @@
+{
+  "name": "singi",
+  "version": "0.0.1",
+  "description": "ANSI/terminal primitives layer for Yowazi TUI framework.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "author": "Rheinard Korf",
+  "license": "MIT"
+}
