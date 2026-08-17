@@ -1,10 +1,10 @@
-# Yowazi
+# Yowazi - Clear, compiled TUIs.
 
 Yowazi is a series of packages and tools for creating TUIs (terminal user interfaces).
 
-The use of `bun` is a very deliberate choice as it can compile NodeJS tools to binaries with runtime sizes of around 65-70MB. Significantly larger than `go` or `rust`, but in a language that is more accessible to developers.
+The use of `bun` is a very deliberate choice as it can compile NodeJS tools to binaries with runtime sizes of around 65-70MB. Significantly larger than `go` or `rust`, but in a language that is more accessible to developers. Yowazi is inspired by the _glamorous_ **Bubbletea** framework for `go`.
 
-Other frameworks, like `ink` exist, but forces a web paradigm (React) on the creation of cli tools. Such frameworks often has many dependencies and a core design goal of `yowazi` is zero-dependencies, aside from some dev dependencies required in the resulting apps.
+Other frameworks, like `ink` exist, but forces a web paradigm (React) on the creation of cli tools. Such frameworks often have many dependencies and a core design goal of `yowazi` is zero-dependencies, aside from some dev dependencies required in the resulting apps.
 
 Because naming is hard, I chose Yowazi from the Swahili language. It means `clearly|clarity` (some translations says "you know"). The rest of the packages adopts Swahili words (or modified versions) for package names.
 
@@ -14,13 +14,13 @@ Because naming is hard, I chose Yowazi from the Swahili language. It means `clea
 
 | Layer | Package | Origin | What it does | Status |
 |-------|---------|--------|--------------|------|
-| Primitives | @yowzazi/singi | "msingi" - foundation | Terminal I/O: ANSI, raw moce, input decoding | - |
+| Primitives | @yowazi/singi | "msingi" - foundation | Terminal I/O: ANSI, raw mode, input decoding | - |
 | Styling | @yowazi/rangi | "rangi" - color, paint | Visual styling: colors, borders, padding, semantic themes | - |
 | Runtime | @yowazi/kini | "kiini" - nucleus, core | Application engine: ELM architecture, init/update/view, command and queue | - |
 | Components | @yowazi/semu | "sehemu" - part, piece | Reusable components: spinner, text input, lists, modals | - |
 | UI Testing | @yowazi/picha | "picha" - picture, photograph | Design-first snapshots: capture, compare, multi-theme regressions | - |
-| SSH Deployment | @yowazi/kibali | "kibali" - permit, permission | SSH service: composible middleware, public-key auth, context handling | - |
-| Example | @yowazi/hariri | "hariri" - edit | ASCII art editor: a yowazi demonstraction application | - |
+| SSH Deployment | @yowazi/kibali | "kibali" - permit, permission | SSH service: composable middleware, public-key auth, context handling | - |
+| Example | @yowazi/hariri | "hariri" - edit | ASCII art editor: a yowazi demonstration application | - |
 
 ## Core design
 
@@ -28,11 +28,13 @@ Because naming is hard, I chose Yowazi from the Swahili language. It means `clea
 
 Applications built using `@yowazi/kini` follows a composable pattern:
 
+```js
 {
   init()              -> [state, commands[]]
   update(msg, state)  -> [newState, commands[]]
   view(state)         -> renderedOutput
 }
+```
 
 No side effects in `update` or `view`. Compose using a `Cmd.map()`.
 
