@@ -7,6 +7,15 @@
 // Cache profile to avoid re-reading process.env on every call.
 let cachedProfile = null;
 
+import { CSI } from './escapes.js';
+
+export const ColorProfile = Object.freeze({
+  NoColor: 'NoColor',
+  Ansi16: 'Ansi16',
+  Ansi256: 'Ansi256',
+  TrueColor: 'TrueColor',
+});
+
 /**
  * Detech terminal color capability from process state.
  * @params {bool} forceDetect
@@ -23,31 +32,31 @@ export function detectColorProfile(forceDetect=false) {
 
   if (env.FORCE_COLOR != undefined) {
     const force = env.FORCE_COLOR;
-    if (force === '0' || force === 'false' ) return (cachedProfile = 'NoColor');
-    if (force === '1') return (cachedProfile = 'Ansi16');
-    if (force === '2') return (cachedProfile = 'Ansi256');
-    if (force === '3') return (cachedProfile = 'TrueColor');
-    return (cachedProfile = 'Ansi256');
+    if (force === '0' || force === 'false' ) return (cachedProfile = ColorProfile.NoColor);
+    if (force === '1') return (cachedProfile = ColorProfile.Ansi16);
+    if (force === '2') return (cachedProfile = ColorProfile.Ansi256);
+    if (force === '3') return (cachedProfile = ColorProfile.TrueColor);
+    return (cachedProfile = ColorProfile.Ansi256);
   }
 
   if (!process.stdout?.isTTY) {
-    return (cachedProfile = 'NoColor');
+    return (cachedProfile = ColorProfile.NoColor);
   }
 
   if (env.COLORTERM === 'truecolor' || env.COLORTERM === '24bit' ) {
     // Deal with Linux lying about truecolor support.
-    return ( cachedProfile = env.TERM === 'linux' ? 'Ansi256' : 'TrueColor');
+    return ( cachedProfile = env.TERM === 'linux' ? ColorProfile.Ansi256 : ColorProfile.TrueColor);
   }
 
   if (env.TERM?.endsWith('-256color')) {
-    return (cachedProfile = 'Ansi256');
+    return (cachedProfile = ColorProfile.Ansi256);
   }
 
   if(env.TERM_PROGRAM === 'Apple_Terminal') {
-    return (cachedProfile = 'Ansi256');
+    return (cachedProfile = ColorProfile.Ansi256);
   }
 
-  return (cachedProfile = 'Ansi16');
+  return (cachedProfile = ColorProfile.Ansi16);
 }
 
 /**
@@ -57,11 +66,11 @@ export function detectColorProfile(forceDetect=false) {
  */
 export function downsampler(profile) {
   switch (profile) {
-    case 'Ansi16':
+    case ColorProfile.Ansi16:
       return downsampleTo16;
-    case 'Ansi256':
+    case ColorProfile.Ansi256:
       return downsampleTo256;
-    case 'TrueColor':
+    case ColorProfile.TrueColor:
       return (r, g, b) => {
         return `${r};${g};${b}`;
       }
@@ -120,3 +129,44 @@ function downsampleTo256(r, g, b) {
   // Index = Base Offset (16) + (Red * 36) + (Green * 6) + Blue.
   return String(16 + rIdx * 36 + gIdx * 6 + bIdx);
 }
+
+/**
+ * Returns a foreground color string.
+ *
+ * @params {number} r 0-255
+ * @params {number} g 0-255
+ * @params {number} b 0-255
+ *
+ * @returns {string}
+ */
+export function fg(r, g, b) {
+  const profile = detectColorProfile();
+  const sampler = downsampler(profile);
+  const colorCode = sampler(r, g, b);
+
+  if (profile === ColorProfile.NoColor || !colorCode) return '';
+  if (profile === ColorProfile.Ansi16) return `${CSI}${colorCode}m`;
+  if (profile === ColorProfile.Ansi256) return `${CSI}38;5;${colorCode}m`;
+  if (profile === ColorProfile.TrueColor) return `${CSI}38;2;${colorCode}m`;
+}
+
+/**
+ * Returns a background color string.
+ *
+ * @params {number} r 0-255
+ * @params {number} g 0-255
+ * @params {number} b 0-255
+ *
+ * @returns {string}
+ */
+export function bg(r, g, b) {
+  const profile = detectColorProfile();
+  const sampler = downsampler(profile);
+  const colorCode = sampler(r, g, b);
+
+  if (profile === ColorProfile.NoColor || !colorCode) return '';
+  if (profile === ColorProfile.Ansi16) return `${CSI}${parseInt(colorCode) + 10}m`;
+  if (profile === ColorProfile.Ansi256) return `${CSI}48;5;${colorCode}m`;
+  if (profile === ColorProfile.TrueColor) return `${CSI}48;2;${colorCode}m`;
+}
+
