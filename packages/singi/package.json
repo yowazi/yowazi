@@ -1,5 +1,5 @@
 {
-  "name": "singi",
+  "name": "@yowazi/singi",
   "version": "0.0.1",
   "description": "ANSI/terminal primitives layer for Yowazi TUI framework.",
   "type": "module",
@@ -11,6 +11,11 @@
   "files": [
     "src"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yowazi/yowazi",
+    "directory": "packages/singi"
+  },
   "author": "Rheinard Korf",
   "license": "MIT"
 }
