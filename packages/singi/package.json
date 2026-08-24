@@ -16,6 +16,9 @@
     "url": "https://github.com/yowazi/yowazi",
     "directory": "packages/singi"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Rheinard Korf",
   "license": "MIT"
 }
