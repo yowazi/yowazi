@@ -14,7 +14,7 @@ Because naming is hard, I chose Yowazi from the Swahili language. It means `clea
 
 | Layer | Package | Origin | What it does | Status |
 |-------|---------|--------|--------------|------|
-| Primitives | @yowazi/singi | "msingi" - foundation | Terminal I/O: ANSI, raw mode, input decoding | - |
+| Primitives | @yowazi/singi | "msingi" - foundation | Terminal I/O: ANSI, raw mode, input decoding | 0.0.1 published |
 | Styling | @yowazi/rangi | "rangi" - color, paint | Visual styling: colors, borders, padding, semantic themes | - |
 | Runtime | @yowazi/kini | "kiini" - nucleus, core | Application engine: ELM architecture, init/update/view, command and queue | - |
 | Components | @yowazi/semu | "sehemu" - part, piece | Reusable components: spinner, text input, lists, modals | - |
