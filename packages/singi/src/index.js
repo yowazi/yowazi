@@ -6,11 +6,29 @@
  * Exports low-level terminal control utilities.
  */
 
-export { 
-  getTerminalSize, 
+export {
   enterFullscreen,
   exitFullscreen,
 } from './terminal.js';
+
+export {
+  setRawMode,
+  setNormalMode,
+  isRawMode,
+  getTerminalSize,
+} from './state.js';
+
+export {
+  createKeyDecoder,
+} from './input.js';
+
+export {
+  charWidth,
+  stringWidth,
+  sliceWidth,
+  padWidth,
+  truncateWidth,
+} from './width.js';
 
 export {
   cursorPos,

@@ -17,31 +17,16 @@ import {
   sgrReset,
   clearScreen,
 } from './escapes.js';
+import { registerSignalHandler } from './signals.js';
 
 const write = (str) => process.stdout.write(str);
-
-/**
- * Get the current terminal dimensions.
- *
- * @returns {{ width: number, height: number }}
- *
- * @example
- * const { width, height } = getTerminalSize();
- * console.log(`Terminal is ${width} columns and ${height} rows.`);
- */
-export function getTerminalSize() {
-  return {
-    width: process.stdout.columns || 80,
-    height: process.stdout.rows || 24,
-  };
-}
 
 //*******************************************************************
 // fullscreen handling
 //*******************************************************************
 
 let isFullscreen = false;
-let fullscreenListenersRegistered = false;
+const unregisterHandlers = [];
 
 /**
  * Fullscreen escape sequence.
@@ -126,13 +111,11 @@ export function enterFullscreen(options) {
   isFullscreen = true;
   writeEnter(options);
 
-  if (!fullscreenListenersRegistered) {
-    fullscreenListenersRegistered = true;
-    process.on('exit', handleExit);
-    process.on('SIGINT', handleSigint);
-    process.on('SIGTERM', handleSigterm);
-    process.on('uncaughtException', handleUncaughtError);
-  }
+  // Register signal handlers via the signal registry
+  unregisterHandlers.push(registerSignalHandler('exit', handleExit));
+  unregisterHandlers.push(registerSignalHandler('SIGINT', handleSigint));
+  unregisterHandlers.push(registerSignalHandler('SIGTERM', handleSigterm));
+  unregisterHandlers.push(registerSignalHandler('uncaughtException', handleUncaughtError));
 }
 
 /**
@@ -148,12 +131,8 @@ export function exitFullscreen() {
   isFullscreen = false;
   writeExit();
 
-  if (fullscreenListenersRegistered) {
-    fullscreenListenersRegistered = false;
-    process.off('exit', handleExit);
-    process.off('SIGINT', handleSigint);
-    process.off('SIGTERM', handleSigterm);
-    process.off('uncaughtException', handleUncaughtError);
-  }
+  // Unregister all signal handlers
+  unregisterHandlers.forEach(unregister => unregister());
+  unregisterHandlers.length = 0;
 }
 

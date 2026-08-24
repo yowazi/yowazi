@@ -1,6 +1,6 @@
 {
   "name": "@yowazi/singi",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "ANSI/terminal primitives layer for Yowazi TUI framework.",
   "type": "module",
   "main": "src/index.js",

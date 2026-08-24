@@ -10,6 +10,9 @@ Low-level ANSI/terminal primitives for building TUI applications. Part of the [Y
 - 🖱️ **Cursor control** - Position, hide/show, save/restore cursor
 - 🖥️ **Screen control** - Clear screen, erase lines, fullscreen mode
 - 📝 **Text formatting** - Bold, dim, italic, underline, blink, invert, strikethrough
+- ⌨️ **Input decoding** - Keyboard input parsing (UTF-8, escape sequences, modifiers, mouse events, bracketed paste)
+- 📊 **Character width** - Unicode character width for terminal layout (handles CJK, emoji, combining marks)
+- 📳 **Terminal modes** - Raw mode, signal handling (SIGWINCH, SIGINT, SIGTERM), capability negotiation
 - 🔧 **Low-level primitives** - Direct access to CSI escape sequences
 - ♿ **Accessibility** - Respects `NO_COLOR` and `FORCE_COLOR` environment variables
 
@@ -88,6 +91,34 @@ if (profile === ColorProfile.TrueColor) {
 } else if (profile === ColorProfile.Ansi256) {
   console.log(convert(255, 100, 50)); // '196' (palette index)
 }
+```
+
+### Raw Mode & Input Decoding
+
+```javascript
+import { setRawMode, setNormalMode, createKeyDecoder } from 'singi';
+
+const decoder = createKeyDecoder();
+
+// Enable raw mode with resize and signal handling
+setRawMode({
+  onResize: (size) => console.log(`Terminal: ${size.width}x${size.height}`),
+  onSignal: (signal) => {
+    console.log(`Received ${signal}`);
+    setNormalMode();
+    process.exit(0);
+  }
+});
+
+// Handle keyboard input
+process.stdin.on('data', chunk => {
+  const events = decoder.push(chunk);
+  events.forEach(event => {
+    if (event.type === 'key') {
+      console.log(`Pressed: ${event.key}`);
+    }
+  });
+});
 ```
 
 ### Fullscreen Mode
@@ -172,6 +203,137 @@ Returns a foreground color escape sequence. RGB values are 0-255.
 
 #### `bg(r: number, g: number, b: number): string`
 Returns a background color escape sequence. RGB values are 0-255.
+
+### Input Decoding
+
+#### `createKeyDecoder(): { push, flush }`
+Creates a stateful decoder for ANSI keyboard input sequences. Converts raw bytes from stdin into structured input events.
+
+**Returns:**
+- `push(chunk: Buffer | Uint8Array): InputEvent[]` - Process a chunk of input, returns completed events
+- `flush(): InputEvent[]` - Flush remaining buffered bytes as events
+
+**Event types:**
+```javascript
+// KeyEvent (supports Ctrl, Shift, Alt modifiers)
+{ type: 'key', key: string, ctrl?: boolean, shift?: boolean, alt?: boolean }
+
+// MouseEvent (SGR mouse protocol)
+{ type: 'mouse', x: number, y: number, button: string, action: string }
+
+// PasteEvent (bracketed paste mode)
+{ type: 'paste', text: string }
+
+// ResizeEvent (terminal resize via SIGWINCH)
+{ type: 'resize', rows: number, cols: number }
+```
+
+**Supported key names:**
+- Single characters: `'a'`, `'1'`, `'!'`, etc.
+- Special keys: `'escape'`, `'tab'`, `'enter'`, `'backspace'`, `'delete'`
+- Arrow keys: `'up'`, `'down'`, `'left'`, `'right'` (supports Ctrl/Shift modifiers)
+- Navigation: `'home'`, `'end'`, `'pageup'`, `'pagedown'`
+- Function keys: `'f1'` through `'f12'` (supports Ctrl/Shift modifiers)
+- UTF-8: Emoji and international characters
+
+**Modifiers:**
+- `Ctrl+<key>`: `{ type: 'key', key, ctrl: true }`
+- `Shift+<key>`: `{ type: 'key', key, shift: true }`
+- `Alt+<key>`: `{ type: 'key', key, alt: true }`
+- Combined: `{ type: 'key', key, ctrl: true, shift: true }`
+
+**Bracketed Paste:**
+When bracketed paste mode is enabled (via `setRawMode`), pasted text is delivered as a single `PasteEvent` instead of individual key events, preserving formatting and newlines.
+
+**Example:**
+```javascript
+import { createKeyDecoder } from 'singi';
+
+const decoder = createKeyDecoder();
+
+process.stdin.on('data', (chunk) => {
+  const events = decoder.push(chunk);
+  events.forEach(event => {
+    if (event.type === 'key') {
+      console.log(`Key pressed: ${event.key}${event.ctrl ? ' (Ctrl)' : ''}${event.alt ? ' (Alt)' : ''}`);
+    }
+  });
+});
+```
+
+### Character Width
+
+#### `charWidth(char: string): number`
+Get display width of a single character in columns (0, 1, or 2).
+
+Properly handles:
+- Control characters (0 columns)
+- ASCII (1 column)
+- CJK characters (2 columns)
+- Emoji (2 columns)
+- Combining marks (0 columns)
+
+#### `stringWidth(str: string): number`
+Get total display width of a string in columns.
+
+#### `sliceWidth(str: string, maxWidth: number): string`
+Slice string to fit within max width in columns.
+
+#### `padWidth(str: string, width: number, align?: 'left' | 'right'): string`
+Pad string to exact width with spaces.
+
+#### `truncateWidth(str: string, maxWidth: number, suffix?: string): string`
+Truncate string to fit within width, optionally adding suffix (e.g., '…').
+
+### Terminal Mode
+
+#### `setRawMode(options?: ModeOptions): boolean`
+Enable raw mode on stdin and configure terminal capabilities.
+
+Raw mode allows capturing individual keypresses, escape sequences, and control codes. It disables line buffering and terminal echo.
+
+**Options:**
+```javascript
+{
+  capabilities?: {
+    bracketedPaste?: boolean,    // Enable bracketed paste mode (default: true)
+    mouseReporting?: boolean,    // Enable SGR mouse reporting (default: true)
+    focusEvents?: boolean        // Enable focus event tracking (default: true)
+  },
+  onResize?: (size: {width, height}) => void,  // SIGWINCH handler
+  onSignal?: (signal: string) => void          // Signal handler (SIGINT, SIGTERM, SIGTSTP)
+}
+```
+
+**Returns:** `true` if raw mode was enabled, `false` if stdin is not a TTY.
+
+#### `setNormalMode(): void`
+Restore normal terminal mode and disable all capabilities.
+
+Cleans up signal handlers and restores terminal echo and line buffering.
+
+#### `isRawMode(): boolean`
+Check if raw mode is currently active.
+
+**Example:**
+```javascript
+import { setRawMode, setNormalMode, createKeyDecoder } from 'singi';
+
+setRawMode({
+  onResize: (size) => console.log(`Resized to ${size.width}x${size.height}`),
+  onSignal: (signal) => {
+    console.log(`Received ${signal}`);
+    setNormalMode();
+    process.exit(0);
+  }
+});
+
+const decoder = createKeyDecoder();
+process.stdin.on('data', chunk => {
+  const events = decoder.push(chunk);
+  // Handle input...
+});
+```
 
 ### Raw Escape Sequences
 

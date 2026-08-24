@@ -1,6 +1,7 @@
 // @ts-check
 import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
-import { getTerminalSize, enterFullscreen, exitFullscreen } from './terminal.js';
+import { getTerminalSize } from './state.js';
+import { enterFullscreen, exitFullscreen } from './terminal.js';
 
 describe('terminal utilities', () => {
   describe('getTerminalSize', () => {
