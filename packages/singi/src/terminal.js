@@ -41,7 +41,7 @@ export function getTerminalSize() {
 //*******************************************************************
 
 let isFullscreen = false;
-let fullscreenListenersRegisteres = false;
+let fullscreenListenersRegistered = false;
 
 /**
  * Fullscreen escape sequence.
@@ -103,7 +103,7 @@ function handleSigterm() {
  * @param {Error} err 
  * @returns {void}
  */
-function handleUncaughtError() {
+function handleUncaughtError(err) {
    exitFullscreen();
    console.error(err);
    process.exit(1);
@@ -126,8 +126,8 @@ export function enterFullscreen(options) {
   isFullscreen = true;
   writeEnter(options);
 
-  if (!fullscreenListenersRegisteres) {
-    fullscreenListenersRegisteres = true;
+  if (!fullscreenListenersRegistered) {
+    fullscreenListenersRegistered = true;
     process.on('exit', handleExit);
     process.on('SIGINT', handleSigint);
     process.on('SIGTERM', handleSigterm);
@@ -148,8 +148,8 @@ export function exitFullscreen() {
   isFullscreen = false;
   writeExit();
 
-  if (fullscreenListenersRegisteres) {
-    fullscreenListenersRegisteres = false;
+  if (fullscreenListenersRegistered) {
+    fullscreenListenersRegistered = false;
     process.off('exit', handleExit);
     process.off('SIGINT', handleSigint);
     process.off('SIGTERM', handleSigterm);

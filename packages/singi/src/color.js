@@ -18,7 +18,7 @@ export const ColorProfile = Object.freeze({
 
 /**
  * Detech terminal color capability from process state.
- * @params {bool} forceDetect
+ * @param {bool} forceDetect
  * @returns {ColorProfile}
  */
 export function detectColorProfile(forceDetect=false) {
@@ -133,9 +133,9 @@ function downsampleTo256(r, g, b) {
 /**
  * Returns a foreground color string.
  *
- * @params {number} r 0-255
- * @params {number} g 0-255
- * @params {number} b 0-255
+ * @param {number} r 0-255
+ * @param {number} g 0-255
+ * @param {number} b 0-255
  *
  * @returns {string}
  */
@@ -153,9 +153,9 @@ export function fg(r, g, b) {
 /**
  * Returns a background color string.
  *
- * @params {number} r 0-255
- * @params {number} g 0-255
- * @params {number} b 0-255
+ * @param {number} r 0-255
+ * @param {number} g 0-255
+ * @param {number} b 0-255
  *
  * @returns {string}
  */
