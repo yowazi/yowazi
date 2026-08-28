@@ -1,0 +1,22 @@
+{
+  "name": "@yowazi/rangi",
+  "version": "0.0.1",
+  "description": "Styling and theming layer for Yowazi TUI framework.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./themes": "./src/themes/index.js"
+  },
+  "dependencies": {
+    "@yowazi/singi": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "repository": {
+    "directory": "packages/rangi"
+  },
+  "license": "MIT",
+  "author": "Rheinard Korf"
+}

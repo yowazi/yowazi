@@ -1,0 +1,29 @@
+{
+  "name": "transparent",
+  "colors": {
+    "default": {
+      "fg": [100, 100, 100],
+      "bg": null
+    },
+    "primary": {
+      "fg": [0, 255, 100],
+      "bg": null
+    },
+    "secondary": {
+      "fg": [150, 150, 150],
+      "bg": null
+    },
+    "alert": {
+      "fg": [200, 0, 0],
+      "bg": null
+    },
+    "warning": {
+      "fg": [200, 100, 0],
+      "bg": null
+    },
+    "error": {
+      "fg": [200, 0, 0],
+      "bg": null
+    }
+  }
+}
