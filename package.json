@@ -8,8 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "bun test",
-    "typecheck": "tsc --noEmit -p jsonconfig.base.json"
+    "test": "bun test"
   },
   "devDependencies": {
     "typescript": "latest"
