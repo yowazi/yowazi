@@ -101,6 +101,28 @@ describe('stringWidth', () => {
     expect(result).toBeGreaterThanOrEqual(4);
     expect(result).toBeLessThanOrEqual(5);
   });
+
+  it('strips ANSI escape codes correctly', () => {
+    // Bold code
+    expect(stringWidth('\x1b[1mhello\x1b[0m')).toBe(5);
+    // Italic code
+    expect(stringWidth('\x1b[3mworld\x1b[0m')).toBe(5);
+    // RGB color code
+    expect(stringWidth('\x1b[38;2;255;0;0mtest\x1b[0m')).toBe(4);
+  });
+
+  it('handles multiple ANSI codes in string', () => {
+    const text = '\x1b[1m\x1b[38;2;255;200;0mCLICK ME\x1b[0m';
+    expect(stringWidth(text)).toBe(8); // "CLICK ME" only
+  });
+
+  it('strips 256-color codes', () => {
+    expect(stringWidth('\x1b[38;5;196mred\x1b[0m')).toBe(3);
+  });
+
+  it('strips 16-color codes', () => {
+    expect(stringWidth('\x1b[31mred\x1b[0m')).toBe(3);
+  });
 });
 
 describe('sliceWidth', () => {
@@ -130,6 +152,28 @@ describe('sliceWidth', () => {
     expect(sliceWidth('👋hello', 2)).toBe('👋');
     expect(sliceWidth('👋hello', 7)).toBe('👋hello');
   });
+
+  it('preserves ANSI codes when slicing', () => {
+    const ansiStr = '\x1b[1mhello\x1b[0m';
+    const sliced = sliceWidth(ansiStr, 3);
+    expect(stringWidth(sliced)).toBe(3);
+    expect(sliced).toContain('\x1b[1m');
+    expect(sliced).toContain('\x1b[0m');
+  });
+
+  it('handles multiple ANSI codes in string', () => {
+    const ansiStr = '\x1b[1m\x1b[38;2;255;200;0mCLICK ME\x1b[0m';
+    const sliced = sliceWidth(ansiStr, 4);
+    expect(stringWidth(sliced)).toBe(4);
+    expect(sliced).toBe('\x1b[1m\x1b[38;2;255;200;0mCLIC\x1b[0m');
+  });
+
+  it('slices colored text correctly', () => {
+    const coloredStr = '\x1b[31mred\x1b[0m';
+    const sliced = sliceWidth(coloredStr, 2);
+    expect(stringWidth(sliced)).toBe(2);
+    expect(sliced).toBe('\x1b[31mre\x1b[0m');
+  });
 });
 
 describe('padWidth', () => {
@@ -156,6 +200,19 @@ describe('padWidth', () => {
   it('returns string unchanged if already >= width', () => {
     expect(padWidth('hello', 5)).toBe('hello');
     expect(padWidth('hello', 3)).toBe('hello');
+  });
+
+  it('handles ANSI codes when padding', () => {
+    const ansiStr = '\x1b[1mhi\x1b[0m';
+    const padded = padWidth(ansiStr, 5);
+    expect(stringWidth(padded)).toBe(5);
+    expect(padded).toContain('\x1b[1m');
+  });
+
+  it('pads ANSI-colored text left', () => {
+    const ansiStr = '\x1b[31mred\x1b[0m';
+    const padded = padWidth(ansiStr, 6, 'left');
+    expect(stringWidth(padded)).toBe(6);
   });
 });
 
@@ -186,5 +243,48 @@ describe('truncateWidth', () => {
   it('returns original if fitting', () => {
     expect(truncateWidth('hi', 10)).toBe('hi');
     expect(truncateWidth('hello', 5)).toBe('hello');
+  });
+
+  it('truncates ANSI-encoded strings', () => {
+    const ansiStr = '\x1b[1mhello world\x1b[0m';
+    const truncated = truncateWidth(ansiStr, 5);
+    expect(stringWidth(truncated)).toBeLessThanOrEqual(5);
+    expect(truncated).toContain('\x1b[1m');
+  });
+
+  it('truncates with suffix on ANSI strings', () => {
+    const ansiStr = '\x1b[31mhello world\x1b[0m';
+    const truncated = truncateWidth(ansiStr, 8, '…');
+    expect(stringWidth(truncated)).toBeLessThanOrEqual(8);
+  });
+
+  it('preserves ANSI codes when truncating', () => {
+    const ansiStr = '\x1b[1m\x1b[38;2;255;200;0mCLICK ME\x1b[0m';
+    const truncated = truncateWidth(ansiStr, 4);
+    expect(stringWidth(truncated)).toBe(4);
+    expect(truncated).toContain('\x1b[1m');
+    expect(truncated).toContain('\x1b[38;2;255;200;0m');
+  });
+});
+
+describe('charWidth - Box Drawing Characters', () => {
+  it('returns 1 for common box drawing characters', () => {
+    // These should all be single-width
+    expect(charWidth('─')).toBe(1); // Horizontal line
+    expect(charWidth('│')).toBe(1); // Vertical line
+    expect(charWidth('┬')).toBe(1); // T-down
+    expect(charWidth('┴')).toBe(1); // T-up
+    expect(charWidth('├')).toBe(1); // T-right
+    expect(charWidth('┤')).toBe(1); // T-left
+    expect(charWidth('┼')).toBe(1); // Cross
+    expect(charWidth('╭')).toBe(1); // Rounded corner top-left
+    expect(charWidth('╮')).toBe(1); // Rounded corner top-right
+    expect(charWidth('╰')).toBe(1); // Rounded corner bottom-left
+    expect(charWidth('╯')).toBe(1); // Rounded corner bottom-right
+  });
+
+  it('correctly measures box drawing border width', () => {
+    const border = '╭────────────────╮';
+    expect(stringWidth(border)).toBe(18);
   });
 });

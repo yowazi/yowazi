@@ -23,6 +23,14 @@ export {
 } from './input.js';
 
 export {
+  ColorProfile,
+  detectColorProfile,
+  downsampler,
+  fg,
+  bg,
+} from './color.js';
+
+export {
   charWidth,
   stringWidth,
   sliceWidth,

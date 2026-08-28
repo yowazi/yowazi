@@ -60,7 +60,7 @@ export function charWidth(chr) {
 /**
  * Get total display width of a string in columns.
  *
- * Handles multi-byte UTF-8 characters and emoji correctly.
+ * Strips ANSI escape sequences and handles multi-byte UTF-8 characters and emoji.
  *
  * @param {string} str - String to measure
  * @returns {number} Total width in columns
@@ -70,11 +70,14 @@ export function charWidth(chr) {
  * stringWidth('café')       // 4
  * stringWidth('你好')        // 4 (2 CJK chars × 2)
  * stringWidth('👋world')    // 7 (👋=2 + world=5)
+ * stringWidth('\x1b[1mhello\x1b[0m')  // 5 (bold codes stripped)
  */
 export function stringWidth(str) {
+  // Strip ANSI escape sequences before measuring width
+  const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
   let width = 0;
 
-  for (const chr of str) {
+  for (const chr of cleanStr) {
     width += charWidth(chr);
   }
 
@@ -85,7 +88,10 @@ export function stringWidth(str) {
  * Slice string to fit within max width.
  *
  * Returns substring that fits within the given column width,
- * accounting for multi-column characters.
+ * accounting for multi-column characters and ANSI escape codes.
+ *
+ * Strips ANSI codes before measuring to ensure accurate width calculation,
+ * then preserves them in the returned string.
  *
  * @param {string} str - String to slice
  * @param {number} maxWidth - Maximum width in columns
@@ -94,21 +100,71 @@ export function stringWidth(str) {
  * @example
  * sliceWidth('hello', 3)    // 'hel'
  * sliceWidth('你好world', 5) // '你好wo' (你=2, 好=2, w=1)
+ * sliceWidth('\x1b[1mhello\x1b[0m', 3) // '\x1b[1mhel\x1b[0m'
  */
 export function sliceWidth(str, maxWidth) {
-  let width = 0;
-  let index = 0;
+  // Extract ANSI codes and their positions
+  const ansiRegex = /\x1b\[[0-9;]*m/g;
+  const codes = [];
+  let match;
 
-  for (const chr of str) {
-    const chrWidth = charWidth(chr);
-    if (width + chrWidth > maxWidth) {
-      break;
-    }
-    width += chrWidth;
-    index += chr.length;
+  while ((match = ansiRegex.exec(str)) !== null) {
+    codes.push({ index: match.index, code: match[0], length: match[0].length });
   }
 
-  return str.slice(0, index);
+  // If no ANSI codes, use simple slicing
+  if (codes.length === 0) {
+    let width = 0;
+    let index = 0;
+
+    for (const chr of str) {
+      const chrWidth = charWidth(chr);
+      if (width + chrWidth > maxWidth) {
+        break;
+      }
+      width += chrWidth;
+      index += chr.length;
+    }
+
+    return str.slice(0, index);
+  }
+
+  // For ANSI-encoded strings, iterate through original string tracking width
+  let width = 0;
+  let result = '';
+  let codeIndex = 0;
+  let cutoffPos = str.length; // Track where we stop collecting content
+
+  for (let i = 0; i < str.length; i++) {
+    // Check if we're at an ANSI code position
+    if (codeIndex < codes.length && i === codes[codeIndex].index) {
+      // Add the entire ANSI code without counting width
+      result += codes[codeIndex].code;
+      i += codes[codeIndex].length - 1; // Skip past the code
+      codeIndex++;
+      continue;
+    }
+
+    // This is a regular character
+    const chr = str[i];
+    const chrWidth = charWidth(chr);
+
+    if (width + chrWidth > maxWidth) {
+      cutoffPos = i;
+      break;
+    }
+
+    width += chrWidth;
+    result += chr;
+  }
+
+  // Append any trailing ANSI codes that come after our cutoff
+  while (codeIndex < codes.length && codes[codeIndex].index >= cutoffPos) {
+    result += codes[codeIndex].code;
+    codeIndex++;
+  }
+
+  return result;
 }
 
 /**
@@ -192,8 +248,10 @@ function isWideCharacter(code) {
   // Dingbats (includes hearts, symbols, etc.)
   if (code >= 0x2700 && code <= 0x27bf) return true;
 
-  // Box drawing and block elements
-  if (code >= 0x2500 && code <= 0x259f) return true;
+  // Box drawing and block elements - most are single-width
+  // Only the block elements (0x2588-0x259f) are typically wide
+  // All other box drawing characters (0x2500-0x2587) are single-width
+  if (code >= 0x2588 && code <= 0x259f) return true;
 
   // Miscellaneous Symbols and Arrows
   if (code >= 0x2b00 && code <= 0x2bff) return true;
