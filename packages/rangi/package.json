@@ -8,6 +8,9 @@
     ".": "./src/index.js",
     "./themes": "./src/themes/index.js"
   },
+  "files": [
+    "src"
+  ],
   "dependencies": {
     "@yowazi/singi": "workspace:*"
   },
@@ -15,7 +18,12 @@
     "bun-types": "latest"
   },
   "repository": {
+    "type": "git",
+    "url": "https://github.com/yowazi/yowazi",
     "directory": "packages/rangi"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT",
   "author": "Rheinard Korf"
