@@ -171,6 +171,48 @@ When a theme color is `null`, that component doesn't override the terminal's bac
 - Useful for overlays, floating elements, and UI that shouldn't set backgrounds
 - Compare with opaque backgrounds that override the terminal default
 
+### 12-box-model.js
+**Concepts:** Box model (padding, borders, sizing, alignment)
+
+Introduces the box model features for creating structured, boxed layouts:
+- `.padding(...)` — space inside borders (CSS-style shorthand: 1, 2, or 4 values)
+- `.border(styleName)` — four border styles: `normal`, `rounded`, `thick`, `double`
+- `.borderSides(partial)` — toggle specific sides on/off (top, right, bottom, left)
+- `.borderForeground(role)` / `.borderForegroundRGB(r,g,b)` — border colors
+- `.width(n)` / `.height(n)` — explicit sizing
+- `.align(direction)` — `'left'`, `'center'`, `'right'` alignment (requires width)
+
+Demonstrates:
+- Padding on all sides, then split (vertical/horizontal), then explicit per-side
+- All four named border styles
+- Partial borders (top+bottom only, left+right only, etc.)
+- Colored borders (semantic and raw RGB)
+- Fixed-width text with three alignments
+- Combined padding + border + width + alignment
+
+### 13-composition.js
+**Concepts:** Composition (joining blocks horizontally and vertically)
+
+Introduces layout composition via `joinVertical()` and `joinHorizontal()`:
+
+**joinVertical(align, ...blocks):**
+- Stacks blocks top-to-bottom
+- All blocks padded to the same width (widest block)
+- `align` is `'left'`, `'center'`, or `'right'`
+
+**joinHorizontal(align, ...blocks):**
+- Places blocks side-by-side
+- All blocks padded to the same height (tallest block)
+- `align` is `'top'`, `'center'`, or `'bottom'`
+
+Demonstrates:
+- Simple vertical stacking with different alignments
+- Simple horizontal joining with different alignments
+- Combined layouts (header + sidebar+content + footer)
+- Multi-column grids
+- Nested composition (joining the results of joins)
+- Color preservation through composition
+
 ---
 
 ## Learning Path
@@ -185,3 +227,5 @@ When a theme color is `null`, that component doesn't override the terminal's bac
 8. **Explore aesthetics:** 09-all-themes.js (choose your theme!)
 9. **Accessibility & standards:** 10-no-color-support.js (respect NO_COLOR)
 10. **Advanced feature:** 11-transparent-colors.js (null colors for adaptive UIs)
+11. **Box model & layouts:** 12-box-model.js (padding, borders, sizing)
+12. **Advanced layouts:** 13-composition.js (joining blocks horizontally/vertically)

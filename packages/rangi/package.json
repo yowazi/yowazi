@@ -1,6 +1,6 @@
 {
   "name": "@yowazi/rangi",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Styling and theming layer for Yowazi TUI framework.",
   "type": "module",
   "main": "./src/index.js",
