@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // @ts-check
 
-import { getTerminalSize } from '../src/terminal.js';
+import { getTerminalSize } from '../src/state.js';
 import { detectColorProfile, downsampler } from '../src/color.js';
 
 console.log("Terminal Information:");

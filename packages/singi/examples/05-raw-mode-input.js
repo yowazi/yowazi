@@ -18,7 +18,7 @@
  * Press arrow keys, function keys, Ctrl+C to exit.
  */
 
-import { setRawMode, setNormalMode, getTerminalSize } from '../src/mode.js';
+import { setRawMode, setNormalMode, getTerminalSize } from '../src/state.js';
 import { createKeyDecoder } from '../src/input.js';
 import {
   clearScreen,
