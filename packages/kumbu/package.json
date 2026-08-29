@@ -1,0 +1,30 @@
+{
+  "name": "@yowazi/kumbu",
+  "version": "0.0.1",
+  "description": "Virtual buffer canvas for Yowazi TUI framework. 2D cell-based rendering with layers, overlays, and dirty-region tracking.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "@yowazi/singi": "workspace:*",
+    "@yowazi/rangi": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yowazi/yowazi",
+    "directory": "packages/kumbu"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "author": "Rheinard Korf"
+}
