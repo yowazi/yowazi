@@ -257,4 +257,23 @@ export class Canvas {
     // Return all rows
     return rowStrings;
   }
+
+  /**
+   * Render canvas to a terminal-ready string with proper newline handling.
+   * This prevents scroll offset by not adding a newline after the last row.
+   *
+   * @param {{regions?: 'all' | 'dirty'} } [options={}] - Output options
+   * @returns {string} - Single string ready for process.stdout.write()
+   */
+  toTerminal(options = {}) {
+    const rows = this.toANSI(options);
+    if (rows.length === 0) return '';
+
+    // Join all but the last row with newlines
+    const allButLast = rows.slice(0, -1).join('\n');
+    const last = rows[rows.length - 1];
+
+    // Return without trailing newline to prevent cursor moving below terminal
+    return allButLast.length > 0 ? allButLast + '\n' + last : last;
+  }
 }

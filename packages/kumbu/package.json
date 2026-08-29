@@ -1,6 +1,6 @@
 {
   "name": "@yowazi/kumbu",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Virtual buffer canvas for Yowazi TUI framework. 2D cell-based rendering with layers, overlays, and dirty-region tracking.",
   "type": "module",
   "main": "./src/index.js",
