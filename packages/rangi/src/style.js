@@ -70,6 +70,15 @@ export class Style {
     /** @type {ColorSpec | null} Border foreground color override */
     this._borderForeground = null;
 
+    /** @type {ColorSpec | null} Border background color override */
+    this._borderBackground = null;
+
+    /** @type {ColorSpec | null} Inner (content/padding) foreground color override */
+    this._innerForeground = null;
+
+    /** @type {ColorSpec | null} Inner (content/padding) background color override */
+    this._innerBackground = null;
+
     /** @type {number | null} Explicit width (rigid sizing) */
     this._width = null;
 
@@ -96,6 +105,9 @@ export class Style {
     copy._padding = this._padding;
     copy._border = this._border;
     copy._borderForeground = this._borderForeground;
+    copy._borderBackground = this._borderBackground;
+    copy._innerForeground = this._innerForeground;
+    copy._innerBackground = this._innerBackground;
     copy._width = this._width;
     copy._height = this._height;
     copy._align = this._align;
@@ -298,10 +310,91 @@ export class Style {
   }
 
   /**
+   * Set border background color (semantic role).
+   *
+   * @param {string} role - Semantic role (e.g. 'primary', 'error')
+   * @returns {Style}
+   */
+  borderBackground(role) {
+    const copy = this._clone();
+    copy._borderBackground = { type: 'semantic', role };
+    return copy;
+  }
+
+  /**
+   * Set border background color (raw RGB).
+   *
+   * @param {number} r - Red (0-255)
+   * @param {number} g - Green (0-255)
+   * @param {number} b - Blue (0-255)
+   * @returns {Style}
+   */
+  borderBackgroundRGB(r, g, b) {
+    const copy = this._clone();
+    copy._borderBackground = { type: 'rgb', value: [r, g, b] };
+    return copy;
+  }
+
+  /**
+   * Set inner content/padding foreground color (semantic role).
+   * This overrides the main foreground() for content and padding only.
+   *
+   * @param {string} role - Semantic role (e.g. 'primary', 'error')
+   * @returns {Style}
+   */
+  innerForeground(role) {
+    const copy = this._clone();
+    copy._innerForeground = { type: 'semantic', role };
+    return copy;
+  }
+
+  /**
+   * Set inner content/padding foreground color (raw RGB).
+   *
+   * @param {number} r - Red (0-255)
+   * @param {number} g - Green (0-255)
+   * @param {number} b - Blue (0-255)
+   * @returns {Style}
+   */
+  innerForegroundRGB(r, g, b) {
+    const copy = this._clone();
+    copy._innerForeground = { type: 'rgb', value: [r, g, b] };
+    return copy;
+  }
+
+  /**
+   * Set inner content/padding background color (semantic role).
+   * This overrides the main background() for content and padding only.
+   *
+   * @param {string} role - Semantic role (e.g. 'primary', 'error')
+   * @returns {Style}
+   */
+  innerBackground(role) {
+    const copy = this._clone();
+    copy._innerBackground = { type: 'semantic', role };
+    return copy;
+  }
+
+  /**
+   * Set inner content/padding background color (raw RGB).
+   *
+   * @param {number} r - Red (0-255)
+   * @param {number} g - Green (0-255)
+   * @param {number} b - Blue (0-255)
+   * @returns {Style}
+   */
+  innerBackgroundRGB(r, g, b) {
+    const copy = this._clone();
+    copy._innerBackground = { type: 'rgb', value: [r, g, b] };
+    return copy;
+  }
+
+  /**
    * Set exact width (rigid sizing).
+   * Width includes padding and borders — the total rendered width will be exactly `n` columns.
    * Blocks with explicit width do not participate in equal distribution in joins.
    *
-   * @param {number} n - Width in columns
+   * @param {number} n - Total width in columns (including padding and borders)
    * @returns {Style}
    */
   width(n) {
@@ -492,11 +585,28 @@ export class Style {
     // Step 1: Split content into lines
     let lines = splitLines(text);
 
-    // Step 2: Determine content dimensions
-    const contentWidth =
-      this._width !== null
-        ? this._width
-        : Math.max(...lines.map(line => stringWidth(line)), 0);
+    // Step 2a: Get padding values (needed to calculate content width)
+    const padTop = this._padding?.top ?? 0;
+    const padRight = this._padding?.right ?? 0;
+    const padBottom = this._padding?.bottom ?? 0;
+    const padLeft = this._padding?.left ?? 0;
+
+    // Step 2b: If width is set, it's the TOTAL box width (including padding and borders).
+    // Subtract padding and border to get content width.
+    let contentWidth;
+    if (this._width !== null) {
+      let totalWidth = this._width;
+      // Subtract padding
+      totalWidth -= (padLeft + padRight);
+      // Subtract border widths (if borders exist)
+      if (this._border !== null) {
+        if (this._border.sides.left) totalWidth -= 1;
+        if (this._border.sides.right) totalWidth -= 1;
+      }
+      contentWidth = Math.max(1, totalWidth); // Ensure minimum 1-char width
+    } else {
+      contentWidth = Math.max(...lines.map(line => stringWidth(line)), 0);
+    }
 
     const contentHeight =
       this._height !== null ? this._height : lines.length;
@@ -515,37 +625,35 @@ export class Style {
     }
 
     // Step 5: Apply padding (expand content area)
-    const padTop = this._padding?.top ?? 0;
-    const padRight = this._padding?.right ?? 0;
-    const padBottom = this._padding?.bottom ?? 0;
-    const padLeft = this._padding?.left ?? 0;
-
+    // (padTop, padRight, padBottom, padLeft already calculated in Step 2a)
     const paddedWidth = contentWidth + padLeft + padRight;
+
+    // Get inner color codes for padding and content
+    const innerOpen = this._buildInnerColorCodes('open');
+    const innerClose = this._buildInnerColorCodes('close');
 
     // Add top padding lines
     const paddedLines = [];
     for (let i = 0; i < padTop; i++) {
-      paddedLines.push(' '.repeat(paddedWidth));
+      const blankLine = ' '.repeat(paddedWidth);
+      paddedLines.push(innerOpen + blankLine + innerClose);
     }
 
     // Pad left and right of each content line
     for (const line of lines) {
       const paddedLine = ' '.repeat(padLeft) + line + ' '.repeat(padRight);
-      paddedLines.push(paddedLine);
+      const styledLine = innerOpen + this._reopenOnClose(paddedLine) + innerClose;
+      paddedLines.push(styledLine);
     }
 
     // Add bottom padding lines
     for (let i = 0; i < padBottom; i++) {
-      paddedLines.push(' '.repeat(paddedWidth));
+      const blankLine = ' '.repeat(paddedWidth);
+      paddedLines.push(innerOpen + blankLine + innerClose);
     }
 
-    // Step 6: Apply content style (colors/attributes) per line
-    const styledLines = paddedLines.map(line => {
-      const prefix = this.open();
-      const reopened = this._reopenOnClose(line);
-      const suffix = this.close();
-      return prefix + reopened + suffix;
-    });
+    // Step 6: Content is already styled in Step 5 (no additional styling needed)
+    const styledLines = paddedLines;
 
     // Step 7: Apply border (if set)
     let finalLines = styledLines;
@@ -604,25 +712,95 @@ export class Style {
   }
 
   /**
-   * Build open/close codes for border foreground color (if set).
+   * Build open/close codes for border foreground and background colors (if set).
+   * If no border-specific colors, falls back to main foreground/background.
    * @private
    * @param {'open' | 'close'} mode
    * @returns {string}
    */
   _buildBorderColorCodes(mode) {
-    if (!this._borderForeground) return '';
+    const codes = [];
+    const theme = this._theme || getTheme();
 
     if (mode === 'close') {
-      return sgr(39); // reset foreground
+      if (this._borderForeground || this._foreground) {
+        codes.push(sgr(39)); // reset foreground
+      }
+      if (this._borderBackground || this._background) {
+        codes.push(sgr(49)); // reset background
+      }
+      return codes.join('');
     }
 
     // mode === 'open'
-    const theme = this._theme || getTheme();
-    if (this._borderForeground.type === 'semantic') {
-      return theme.ansi(this._borderForeground.role, 'fg');
-    } else {
-      const [r, g, b] = this._borderForeground.value;
-      return fg(r, g, b);
+    // Use border-specific colors if set, otherwise fall back to main colors
+    const fgSpec = this._borderForeground || this._foreground;
+    const bgSpec = this._borderBackground || this._background;
+
+    if (fgSpec) {
+      if (fgSpec.type === 'semantic') {
+        codes.push(theme.ansi(fgSpec.role, 'fg'));
+      } else {
+        const [r, g, b] = fgSpec.value;
+        codes.push(fg(r, g, b));
+      }
     }
+
+    if (bgSpec) {
+      if (bgSpec.type === 'semantic') {
+        codes.push(theme.ansi(bgSpec.role, 'bg'));
+      } else {
+        const [r, g, b] = bgSpec.value;
+        codes.push(bg(r, g, b));
+      }
+    }
+
+    return codes.join('');
+  }
+
+  /**
+   * Build open/close codes for inner (content/padding) colors.
+   * Uses innerForeground/innerBackground if set, otherwise main foreground/background.
+   * @private
+   * @param {'open' | 'close'} mode
+   * @returns {string}
+   */
+  _buildInnerColorCodes(mode) {
+    const codes = [];
+    const theme = this._theme || getTheme();
+
+    if (mode === 'close') {
+      if (this._innerForeground || this._foreground) {
+        codes.push(sgr(39)); // reset foreground
+      }
+      if (this._innerBackground || this._background) {
+        codes.push(sgr(49)); // reset background
+      }
+      return codes.join('');
+    }
+
+    // mode === 'open'
+    const fgSpec = this._innerForeground || this._foreground;
+    const bgSpec = this._innerBackground || this._background;
+
+    if (fgSpec) {
+      if (fgSpec.type === 'semantic') {
+        codes.push(theme.ansi(fgSpec.role, 'fg'));
+      } else {
+        const [r, g, b] = fgSpec.value;
+        codes.push(fg(r, g, b));
+      }
+    }
+
+    if (bgSpec) {
+      if (bgSpec.type === 'semantic') {
+        codes.push(theme.ansi(bgSpec.role, 'bg'));
+      } else {
+        const [r, g, b] = bgSpec.value;
+        codes.push(bg(r, g, b));
+      }
+    }
+
+    return codes.join('');
   }
 }
