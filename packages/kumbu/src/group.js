@@ -2,45 +2,64 @@
 
 import { splitLines, joinLines, alignLine, joinHorizontal, joinVertical } from '@yowazi/rangi';
 import { stringWidth } from '@yowazi/singi';
+import { Component } from './component.js';
 
 /**
- * HGroup: Horizontal composition container
+ * @typedef {import('./component').Component} Component
+ */
+
+/**
+ * HGroup: Horizontal composition container, now a Component.
  *
  * Arranges children left-to-right with automatic sizing and positioning.
  * When width is null, children keep natural size (passthrough to joinHorizontal).
  * When width is set, children get equal shares (remainder distributed to first N).
+ *
+ * Extends Component to support focus routing and mouse hit-testing on child components.
+ * Containers themselves are never focusable.
  */
-export class HGroup {
+export class HGroup extends Component {
   /**
-   * @param {Array<string | HGroup | VGroup>} children
+   * @param {Array<string | Component | {render(): string}>} children - Mix of strings, Components, or duck-typed renderables
    * @param {{align?: 'top'|'center'|'bottom', width?: number|null, gap?: number}} options
    */
   constructor(children, options = {}) {
+    super();
     const { align = 'top', width = null, gap = 0 } = options;
     this.children = children || [];
     this.align = align;
     this.width = width;
     this.gap = gap;
+
+    /** @type {{child: any, rect: {x: number, y: number, width: number, height: number}}[]} */
+    this._childRects = [];
   }
 
   /**
    * Render the group to a string (no positioning).
    * Resolves all children recursively, then composes horizontally.
+   * Also computes _childRects for mouse hit-testing.
+   *
+   * @param {Record<string, any>} [props={}]
    * @returns {string}
    */
-  render() {
+  render(props = {}) {
     if (this.children.length === 0) return '';
 
     // Resolve all children to strings
     const rendered = this.children.map(child => {
       if (typeof child === 'string') return child;
-      if (child && typeof child.render === 'function') return child.render();
+      if (child && typeof child.render === 'function') return child.render(props);
       return '';
     });
 
+    // Compute child rects for mouse hit-testing (natural-sizing mode)
+    this._childRects = [];
+
     // If width is not set, use natural sizing (passthrough to joinHorizontal)
     if (this.width === null) {
-      // Insert gap spacers if needed
+      // Build the rendered + gaps list first (to track positions)
+      let toCompose = rendered;
       if (this.gap > 0) {
         const spacer = ' '.repeat(this.gap);
         const spaced = [];
@@ -48,9 +67,27 @@ export class HGroup {
           if (i > 0) spaced.push(spacer);
           spaced.push(rendered[i]);
         }
-        return joinHorizontal(this.align, ...spaced);
+        toCompose = spaced;
       }
-      return joinHorizontal(this.align, ...rendered);
+
+      // Compute x-offsets for each rendered block (before joinHorizontal)
+      let x = 0;
+      for (let i = 0; i < toCompose.length; i++) {
+        const width = Math.max(...splitLines(toCompose[i]).map(line => stringWidth(line)), 0);
+        const childIdx = this.gap > 0 ? Math.floor(i / 2) : i; // Account for spacer interleaving
+        const isGap = this.gap > 0 && i % 2 === 1;
+
+        if (!isGap && childIdx < this.children.length) {
+          const height = splitLines(toCompose[i]).length;
+          this._childRects.push({
+            child: this.children[childIdx],
+            rect: { x, y: 0, width, height }
+          });
+        }
+        x += width;
+      }
+
+      return joinHorizontal(this.align, ...toCompose);
     }
 
     // Equal-distribution mode: divide width equally among children
@@ -63,6 +100,18 @@ export class HGroup {
       const extraCol = idx < remainder ? 1 : 0;
       const targetWidth = childWidth + extraCol;
       return fitBlockWidth(block, targetWidth, 'left');
+    });
+
+    // Track child rects in fixed-width mode
+    let x = 0;
+    fitted.forEach((block, idx) => {
+      const width = childWidth + (idx < remainder ? 1 : 0);
+      const height = splitLines(block).length;
+      this._childRects.push({
+        child: this.children[idx],
+        rect: { x, y: 0, width, height }
+      });
+      x += width + this.gap;
     });
 
     // Insert gap spacers if needed
@@ -80,56 +129,101 @@ export class HGroup {
   }
 
   /**
+   * Get child Components only (filter out strings and duck-typed renderables).
+   * @param {Record<string, any>} [props={}]
+   * @returns {Component[]}
+   */
+  getChildren(props = {}) {
+    return this.children.filter(c => c instanceof Component);
+  }
+
+  /**
+   * Handle mouse events by finding the child under the click and delegating.
+   * @param {Object} event - MouseEvent with x, y already translated to this component's local space
+   * @param {Record<string, any>} [props={}]
+   * @returns {Object | null | undefined}
+   */
+  handleMouse(event, props = {}) {
+    // Find which child rect contains the point
+    for (const { child, rect } of this._childRects) {
+      const { x, y, width, height } = rect;
+      if (event.x >= x && event.x < x + width && event.y >= y && event.y < y + height) {
+        // Translate event to child's local space
+        const childEvent = { ...event, x: event.x - x, y: event.y - y };
+        if (child && typeof child.handleMouse === 'function') {
+          return child.handleMouse(childEvent, props) ?? null;
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Render to canvas at (x, y).
    * @param {import('./canvas').Canvas} canvas
    * @param {number} x
    * @param {number} y
    * @param {string} [layer='base']
+   * @param {Record<string, any>} [props={}]
    */
-  renderToCanvas(canvas, x, y, layer = 'base') {
-    const rendered = this.render();
+  renderToCanvas(canvas, x, y, layer = 'base', props = {}) {
+    const rendered = this.render(props);
     canvas.render(rendered, x, y, layer);
   }
 }
 
 /**
- * VGroup: Vertical composition container
+ * VGroup: Vertical composition container, now a Component.
  *
  * Arranges children top-to-bottom with automatic sizing and positioning.
  * When height is null, children keep natural size (passthrough to joinVertical).
  * When height is set, children get equal shares (remainder distributed to first N).
+ *
+ * Extends Component to support focus routing and mouse hit-testing on child components.
+ * Containers themselves are never focusable.
  */
-export class VGroup {
+export class VGroup extends Component {
   /**
-   * @param {Array<string | HGroup | VGroup>} children
+   * @param {Array<string | Component | {render(): string}>} children - Mix of strings, Components, or duck-typed renderables
    * @param {{align?: 'left'|'center'|'right', height?: number|null, gap?: number}} options
    */
   constructor(children, options = {}) {
+    super();
     const { align = 'left', height = null, gap = 0 } = options;
     this.children = children || [];
     this.align = align;
     this.height = height;
     this.gap = gap;
+
+    /** @type {{child: any, rect: {x: number, y: number, width: number, height: number}}[]} */
+    this._childRects = [];
   }
 
   /**
    * Render the group to a string (no positioning).
    * Resolves all children recursively, then composes vertically.
+   * Also computes _childRects for mouse hit-testing.
+   *
+   * @param {Record<string, any>} [props={}]
    * @returns {string}
    */
-  render() {
+  render(props = {}) {
     if (this.children.length === 0) return '';
 
     // Resolve all children to strings
     const rendered = this.children.map(child => {
       if (typeof child === 'string') return child;
-      if (child && typeof child.render === 'function') return child.render();
+      if (child && typeof child.render === 'function') return child.render(props);
       return '';
     });
 
+    // Compute child rects for mouse hit-testing
+    this._childRects = [];
+
     // If height is not set, use natural sizing (passthrough to joinVertical)
     if (this.height === null) {
-      // Insert gap spacers if needed
+      let toCompose = rendered;
       if (this.gap > 0) {
         // Get max width of rendered blocks for proper blank-line width
         const blockWidth = Math.max(...rendered.flatMap(b => splitLines(b)).map(line => stringWidth(line)), 0);
@@ -141,9 +235,27 @@ export class VGroup {
           if (i > 0) spaced.push(spacer);
           spaced.push(rendered[i]);
         }
-        return joinVertical(this.align, ...spaced);
+        toCompose = spaced;
       }
-      return joinVertical(this.align, ...rendered);
+
+      // Track child rects for natural-sizing mode
+      let y = 0;
+      for (let i = 0; i < toCompose.length; i++) {
+        const height = splitLines(toCompose[i]).length;
+        const width = Math.max(...splitLines(toCompose[i]).map(line => stringWidth(line)), 0);
+        const childIdx = this.gap > 0 ? Math.floor(i / 2) : i;
+        const isGap = this.gap > 0 && i % 2 === 1;
+
+        if (!isGap && childIdx < this.children.length) {
+          this._childRects.push({
+            child: this.children[childIdx],
+            rect: { x: 0, y, width, height }
+          });
+        }
+        y += height;
+      }
+
+      return joinVertical(this.align, ...toCompose);
     }
 
     // Equal-distribution mode: divide height equally among children
@@ -156,6 +268,18 @@ export class VGroup {
       const extraRow = idx < remainder ? 1 : 0;
       const targetHeight = childHeight + extraRow;
       return fitBlockHeight(block, targetHeight);
+    });
+
+    // Track child rects in fixed-height mode
+    let y = 0;
+    fitted.forEach((block, idx) => {
+      const height = childHeight + (idx < remainder ? 1 : 0);
+      const width = Math.max(...splitLines(block).map(line => stringWidth(line)), 0);
+      this._childRects.push({
+        child: this.children[idx],
+        rect: { x: 0, y, width, height }
+      });
+      y += height + this.gap;
     });
 
     // Insert gap spacers if needed
@@ -176,14 +300,46 @@ export class VGroup {
   }
 
   /**
+   * Get child Components only (filter out strings and duck-typed renderables).
+   * @param {Record<string, any>} [props={}]
+   * @returns {Component[]}
+   */
+  getChildren(props = {}) {
+    return this.children.filter(c => c instanceof Component);
+  }
+
+  /**
+   * Handle mouse events by finding the child under the click and delegating.
+   * @param {Object} event - MouseEvent with x, y already translated to this component's local space
+   * @param {Record<string, any>} [props={}]
+   * @returns {Object | null | undefined}
+   */
+  handleMouse(event, props = {}) {
+    // Find which child rect contains the point
+    for (const { child, rect } of this._childRects) {
+      const { x, y, width, height } = rect;
+      if (event.x >= x && event.x < x + width && event.y >= y && event.y < y + height) {
+        // Translate event to child's local space
+        const childEvent = { ...event, x: event.x - x, y: event.y - y };
+        if (child && typeof child.handleMouse === 'function') {
+          return child.handleMouse(childEvent, props) ?? null;
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Render to canvas at (x, y).
    * @param {import('./canvas').Canvas} canvas
    * @param {number} x
    * @param {number} y
    * @param {string} [layer='base']
+   * @param {Record<string, any>} [props={}]
    */
-  renderToCanvas(canvas, x, y, layer = 'base') {
-    const rendered = this.render();
+  renderToCanvas(canvas, x, y, layer = 'base', props = {}) {
+    const rendered = this.render(props);
     canvas.render(rendered, x, y, layer);
   }
 }

@@ -129,7 +129,7 @@ function render() {
     .align('center')
     .foreground('primary')
     .background('default')
-    .innerBackground('primary')
+    .contentBackground('primary')
     .render('Multi-Layer Dashboard');
 
   canvas.render(header, 0, 0, 'base');

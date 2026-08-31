@@ -5,9 +5,11 @@ import { splitLines, joinLines } from '@yowazi/rangi';
 import { parseStyledBlock } from './cell-parser.js';
 import { cellsToANSI } from './cell-render.js';
 import { Viewport } from './viewport.js';
+import { FocusManager } from './focus-manager.js';
 
 /**
  * @typedef {import('./cell-parser').Cell} Cell
+ * @typedef {import('./component').Component} Component
  */
 
 /**
@@ -36,6 +38,12 @@ export class Canvas {
 
     // Layer index by name (for fast lookup)
     this.layerIndex = new Map([['base', 0]]);
+
+    // Component system (optional, for interactive applications)
+    this.rootComponent = null;
+    this.focusManager = new FocusManager();
+    this.rootOrigin = { x: 0, y: 0 };
+    this.rootLayer = 'base';
   }
 
   /**
@@ -275,5 +283,236 @@ export class Canvas {
 
     // Return without trailing newline to prevent cursor moving below terminal
     return allButLast.length > 0 ? allButLast + '\n' + last : last;
+  }
+
+  /**
+   * Set a root component (optional, for interactive applications).
+   * @param {Component} component - Root component to render and route input to
+   * @param {{x?: number, y?: number, layer?: string}} [options={}] - Placement options
+   * @returns {Canvas} - Returns this for chaining
+   */
+  setRootComponent(component, options = {}) {
+    const { x = 0, y = 0, layer = 'base' } = options;
+    this.rootComponent = component;
+    this.rootOrigin = { x, y };
+    this.rootLayer = layer;
+    return this;
+  }
+
+  /**
+   * Render the root component tree to the canvas.
+   * Must call setRootComponent() first.
+   *
+   * @param {Record<string, any>} [props={}] - Application props to pass through the tree
+   * @returns {Canvas} - Returns this for chaining
+   * @throws {Error} if no root component is set
+   */
+  renderComponent(props = {}) {
+    if (!this.rootComponent) {
+      throw new Error('Canvas.renderComponent() called without a root component (call setRootComponent() first)');
+    }
+
+    // Refresh focus order based on current component tree
+    this.focusManager.refresh(this.rootComponent, props);
+
+    // Build render props with focus info
+    const renderProps = {
+      ...props,
+      focusedComponent: this.focusManager.getFocused(),
+      focusManager: this.focusManager,
+    };
+
+    // Render the root component to a string
+    const output = this.rootComponent.render(renderProps);
+
+    // Place it on the canvas using the existing render() method
+    this.render(output, this.rootOrigin.x, this.rootOrigin.y, this.rootLayer);
+
+    return this;
+  }
+
+  /**
+   * Dispatch a keyboard event to the component tree.
+   * Routes to the focused component first, bubbles if declined.
+   * Built-in Tab/Shift+Tab handling advances focus if the tree doesn't consume Tab.
+   *
+   * @param {Object} event - KeyEvent from @yowazi/singi
+   * @param {Record<string, any>} [props={}] - Application props (for the current frame)
+   * @returns {{type: string, payload?: any} | null} - Message from the component tree, or null if unhandled
+   */
+  dispatchKey(event, props = {}) {
+    if (!this.rootComponent) {
+      return null;
+    }
+
+    const path = this.focusManager.getFocusPath();
+    const routeProps = {
+      ...props,
+      focusedComponent: this.focusManager.getFocused(),
+      focusManager: this.focusManager,
+    };
+
+    // Walk the path from focused leaf back to root
+    for (let i = path.length - 1; i >= 0; i--) {
+      const component = path[i];
+      const msg = component.handleKey(event, routeProps);
+      if (msg !== null && msg !== undefined) {
+        return msg;
+      }
+    }
+
+    // Nothing in the tree wanted it. Check built-in Tab handling.
+    if (event.type === 'key') {
+      if (event.key === 'tab') {
+        const focused = this.focusManager.next();
+        return { type: '@@kumbu/focus-changed', payload: { focused } };
+      }
+      if (event.key === 'shift-tab') {
+        const focused = this.focusManager.previous();
+        return { type: '@@kumbu/focus-changed', payload: { focused } };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Dispatch a mouse event to the component tree.
+   * Routes based on coordinate hit-testing; updates focus on press/down.
+   *
+   * @param {Object} event - MouseEvent from @yowazi/singi (raw terminal coordinates)
+   * @param {Record<string, any>} [props={}] - Application props (for the current frame)
+   * @returns {{type: string, payload?: any} | null} - Message from the component tree, or null if unhandled
+   */
+  dispatchMouse(event, props = {}) {
+    if (!this.rootComponent) {
+      return null;
+    }
+
+    // Translate from raw terminal coordinates to root-component-local
+    const local = {
+      ...event,
+      x: event.x - this.rootOrigin.x,
+      y: event.y - this.rootOrigin.y,
+    };
+
+    const routeProps = {
+      ...props,
+      focusedComponent: this.focusManager.getFocused(),
+      focusManager: this.focusManager,
+    };
+
+    // On any button action (press, down, release), find the deepest focusable component under the point and focus it
+    if (event.action === 'press' || event.action === 'down' || event.action === 'release') {
+      const target = this._findFocusableAt(this.rootComponent, local.x, local.y, routeProps);
+      if (target) {
+        this.focusManager.focus(target);
+      }
+    }
+
+    // Route the event to the root component (which will recurse into children)
+    return this.rootComponent.handleMouse(local, routeProps) ?? null;
+  }
+
+  /**
+   * Find the deepest focusable component at a given position (used for mouse focus).
+   * @private
+   * @param {Component} component
+   * @param {number} x - Local coordinate
+   * @param {number} y - Local coordinate
+   * @param {Record<string, any>} props
+   * @returns {Component | null}
+   */
+  _findFocusableAt(component, x, y, props) {
+    // If this component has _childRects (it's a container like HGroup/VGroup),
+    // use them for hit-testing to find which child contains the point
+    if (component._childRects && Array.isArray(component._childRects)) {
+      for (const { child, rect } of component._childRects) {
+        const { x: rx, y: ry, width, height } = rect;
+        if (x >= rx && x < rx + width && y >= ry && y < ry + height) {
+          // Translate coordinates to child's local space and recurse
+          const childX = x - rx;
+          const childY = y - ry;
+          const result = this._findFocusableAt(child, childX, childY, props);
+          if (result) return result;
+        }
+      }
+      // No hit in children; check if container itself is focusable (unlikely)
+      if (component.isFocusable(props)) {
+        return component;
+      }
+      return null;
+    }
+
+    // Leaf component (no _childRects)
+    if (component.isFocusable(props)) {
+      return component;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the absolute cursor position for a component.
+   * Traverses the component tree to find the cursor position relative to the root.
+   *
+   * @private
+   * @param {Component} component - Target component (should have getCursorPos method)
+   * @param {Component} container - Container to search within
+   * @param {number} offsetX - Accumulated X offset
+   * @param {number} offsetY - Accumulated Y offset
+   * @returns {{x: number, y: number} | null} - Absolute cursor position, or null if not found
+   */
+  _getAbsoluteCursorPos(component, container, offsetX = 0, offsetY = 0) {
+    if (container === component) {
+      const pos = component.getCursorPos?.({});
+      if (pos) {
+        return { x: offsetX + pos.x + 1, y: offsetY + pos.y + 1 };
+      }
+      return null;
+    }
+
+    const children = container.getChildren?.({}) || [];
+    const rects = container._childRects || [];
+
+    for (let i = 0; i < children.length; i++) {
+      const rect = rects.find(r => r.child === children[i]);
+      if (rect) {
+        const result = this._getAbsoluteCursorPos(
+          component,
+          children[i],
+          offsetX + rect.rect.x,
+          offsetY + rect.rect.y
+        );
+        if (result) return result;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Position the terminal cursor for the focused component.
+   * If the focused component has a getCursorPos method, position the cursor there.
+   * Otherwise hide the cursor.
+   *
+   * Requires singi's cursorPos and hideCursor/showCursor functions.
+   *
+   * @param {Object} cursorFunctions - Terminal cursor control functions from singi
+   * @param {(row: number, col: number) => string} cursorFunctions.cursorPos - Position cursor
+   * @param {() => string} cursorFunctions.showCursor - Show cursor sequence
+   * @param {() => string} cursorFunctions.hideCursor - Hide cursor sequence
+   * @returns {string} - ANSI escape sequence to position cursor (empty if no focused component)
+   */
+  getCursorOutput(cursorFunctions) {
+    const focused = this.focusManager.getFocused();
+    if (!focused || !focused.getCursorPos) {
+      return cursorFunctions.hideCursor();
+    }
+
+    const pos = this._getAbsoluteCursorPos(focused, this.rootComponent, this.rootOrigin.x, this.rootOrigin.y);
+    if (pos) {
+      return cursorFunctions.showCursor() + cursorFunctions.cursorPos(pos.y, pos.x);
+    }
+    return cursorFunctions.hideCursor();
   }
 }
