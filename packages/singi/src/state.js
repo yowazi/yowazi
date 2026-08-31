@@ -33,8 +33,8 @@ import { registerSignalHandler } from './signals.js';
 const CAPABILITIES = {
   BRACKETED_PASTE_ENABLE: '\x1b[?2004h',
   BRACKETED_PASTE_DISABLE: '\x1b[?2004l',
-  MOUSE_ENABLE: '\x1b[?1000h\x1b[?1006h',
-  MOUSE_DISABLE: '\x1b[?1000l\x1b[?1006l',
+  MOUSE_ENABLE: '\x1b[?1000h\x1b[?1006h\x1b[?1015h',  // X11 + SGR + URXVT modes
+  MOUSE_DISABLE: '\x1b[?1000l\x1b[?1006l\x1b[?1015l',
   FOCUS_EVENTS_ENABLE: '\x1b[?1004h',
   FOCUS_EVENTS_DISABLE: '\x1b[?1004l',
 };

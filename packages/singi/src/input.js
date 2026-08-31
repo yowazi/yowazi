@@ -56,6 +56,7 @@ const BYTE = {
   CSI_FINAL_END: 0x46,
   CSI_FINAL_EXTENDED: 0x7e,
   CSI_FINAL_MOUSE: 0x4d,
+  CSI_FINAL_SHIFT_TAB: 0x5a,  // 'Z' - Shift+Tab
   SS3_F1: 0x50,
   SS3_F2: 0x51,
   SS3_F3: 0x52,
@@ -445,6 +446,7 @@ function decodeCSI(buffer, startIndex) {
     [BYTE.CSI_FINAL_ARROW_LEFT]: 'left',
     [BYTE.CSI_FINAL_HOME]: 'home',
     [BYTE.CSI_FINAL_END]: 'end',
+    [BYTE.CSI_FINAL_SHIFT_TAB]: 'shift-tab',
   };
 
   if (simpleKeyMap[finalByte]) {
