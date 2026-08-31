@@ -74,10 +74,10 @@ export class Style {
     this._borderBackground = null;
 
     /** @type {ColorSpec | null} Inner (content/padding) foreground color override */
-    this._innerForeground = null;
+    this._contentForeground = null;
 
     /** @type {ColorSpec | null} Inner (content/padding) background color override */
-    this._innerBackground = null;
+    this._contentBackground = null;
 
     /** @type {number | null} Explicit width (rigid sizing) */
     this._width = null;
@@ -106,8 +106,8 @@ export class Style {
     copy._border = this._border;
     copy._borderForeground = this._borderForeground;
     copy._borderBackground = this._borderBackground;
-    copy._innerForeground = this._innerForeground;
-    copy._innerBackground = this._innerBackground;
+    copy._contentForeground = this._contentForeground;
+    copy._contentBackground = this._contentBackground;
     copy._width = this._width;
     copy._height = this._height;
     copy._align = this._align;
@@ -161,8 +161,11 @@ export class Style {
   // ===== Colors =====
 
   /**
-   * Set foreground to a semantic role (e.g. 'primary', 'error').
-   * @param {string} role
+   * Set foreground color for both border and content (semantic role).
+   * Can be overridden per-part: borderForeground() for border only,
+   * contentForeground() for content only.
+   *
+   * @param {string} role - Semantic role (e.g. 'primary', 'error')
    * @returns {Style}
    */
   foreground(role) {
@@ -172,8 +175,11 @@ export class Style {
   }
 
   /**
-   * Set background to a semantic role.
-   * @param {string} role
+   * Set background color for both border and content (semantic role).
+   * Can be overridden per-part: borderBackground() for border only,
+   * contentBackground() for content only.
+   *
+   * @param {string} role - Semantic role (e.g. 'primary', 'error')
    * @returns {Style}
    */
   background(role) {
@@ -183,7 +189,10 @@ export class Style {
   }
 
   /**
-   * Set foreground to a raw RGB color.
+   * Set foreground color for both border and content (raw RGB).
+   * Can be overridden per-part: borderForegroundRGB() for border only,
+   * contentForegroundRGB() for content only.
+   *
    * @param {number} r 0–255
    * @param {number} g 0–255
    * @param {number} b 0–255
@@ -196,7 +205,10 @@ export class Style {
   }
 
   /**
-   * Set background to a raw RGB color.
+   * Set background color for both border and content (raw RGB).
+   * Can be overridden per-part: borderBackgroundRGB() for border only,
+   * contentBackgroundRGB() for content only.
+   *
    * @param {number} r 0–255
    * @param {number} g 0–255
    * @param {number} b 0–255
@@ -336,56 +348,62 @@ export class Style {
   }
 
   /**
-   * Set inner content/padding foreground color (semantic role).
-   * This overrides the main foreground() for content and padding only.
+   * Override foreground color for content and padding only (semantic role).
+   * Does not affect the border. Use foreground() to set both,
+   * or borderForeground() to set border-only.
    *
    * @param {string} role - Semantic role (e.g. 'primary', 'error')
    * @returns {Style}
    */
-  innerForeground(role) {
+  contentForeground(role) {
     const copy = this._clone();
-    copy._innerForeground = { type: 'semantic', role };
+    copy._contentForeground = { type: 'semantic', role };
     return copy;
   }
 
   /**
-   * Set inner content/padding foreground color (raw RGB).
+   * Override foreground color for content and padding only (raw RGB).
+   * Does not affect the border. Use foregroundRGB() to set both,
+   * or borderForegroundRGB() to set border-only.
    *
    * @param {number} r - Red (0-255)
    * @param {number} g - Green (0-255)
    * @param {number} b - Blue (0-255)
    * @returns {Style}
    */
-  innerForegroundRGB(r, g, b) {
+  contentForegroundRGB(r, g, b) {
     const copy = this._clone();
-    copy._innerForeground = { type: 'rgb', value: [r, g, b] };
+    copy._contentForeground = { type: 'rgb', value: [r, g, b] };
     return copy;
   }
 
   /**
-   * Set inner content/padding background color (semantic role).
-   * This overrides the main background() for content and padding only.
+   * Override background color for content and padding only (semantic role).
+   * Does not affect the border. Use background() to set both,
+   * or borderBackground() to set border-only.
    *
    * @param {string} role - Semantic role (e.g. 'primary', 'error')
    * @returns {Style}
    */
-  innerBackground(role) {
+  contentBackground(role) {
     const copy = this._clone();
-    copy._innerBackground = { type: 'semantic', role };
+    copy._contentBackground = { type: 'semantic', role };
     return copy;
   }
 
   /**
-   * Set inner content/padding background color (raw RGB).
+   * Override background color for content and padding only (raw RGB).
+   * Does not affect the border. Use backgroundRGB() to set both,
+   * or borderBackgroundRGB() to set border-only.
    *
    * @param {number} r - Red (0-255)
    * @param {number} g - Green (0-255)
    * @param {number} b - Blue (0-255)
    * @returns {Style}
    */
-  innerBackgroundRGB(r, g, b) {
+  contentBackgroundRGB(r, g, b) {
     const copy = this._clone();
-    copy._innerBackground = { type: 'rgb', value: [r, g, b] };
+    copy._contentBackground = { type: 'rgb', value: [r, g, b] };
     return copy;
   }
 
@@ -760,7 +778,7 @@ export class Style {
 
   /**
    * Build open/close codes for inner (content/padding) colors.
-   * Uses innerForeground/innerBackground if set, otherwise main foreground/background.
+   * Uses contentForeground/contentBackground if set, otherwise main foreground/background.
    * @private
    * @param {'open' | 'close'} mode
    * @returns {string}
@@ -770,18 +788,18 @@ export class Style {
     const theme = this._theme || getTheme();
 
     if (mode === 'close') {
-      if (this._innerForeground || this._foreground) {
+      if (this._contentForeground || this._foreground) {
         codes.push(sgr(39)); // reset foreground
       }
-      if (this._innerBackground || this._background) {
+      if (this._contentBackground || this._background) {
         codes.push(sgr(49)); // reset background
       }
       return codes.join('');
     }
 
     // mode === 'open'
-    const fgSpec = this._innerForeground || this._foreground;
-    const bgSpec = this._innerBackground || this._background;
+    const fgSpec = this._contentForeground || this._foreground;
+    const bgSpec = this._contentBackground || this._background;
 
     if (fgSpec) {
       if (fgSpec.type === 'semantic') {
